@@ -61,11 +61,14 @@ class MongoStorage
       return callback err if err
       callback null,
         container: name
-        files: _(files)
-          .map (item) ->
-            _id: item._id
-            filename: item.filename
-          .value()
+        files: files
+
+  destroyContainer: (name, callback) ->
+    @db.collection 'fs.files'
+    .remove
+      'metadata.mongo-storage': true
+      'metadata.container': name
+    , callback
 
   upload: (container, req, res, callback) ->
     self = @
@@ -90,9 +93,25 @@ class MongoStorage
     stream = gfs.createWriteStream options
     stream.on 'close', -> callback()
     file.pipe stream
+
+  getFiles: (container, callback) ->
+    @db.collection 'fs.files'
+    .find
+      'metadata.mongo-storage': true
+      'metadata.container': container
+    , (err, files) ->
+      return callback err, files
   
-  download: (container, filename, res, callback = (-> return)) ->
-    self = @
+  removeFile: (container, filename, callback) ->
+    @db.collection 'fs.files'
+    .remove
+      'metadata.mongo-storage': true
+      'metadata.container': container
+      'metadata.filename': filename
+    , (err) ->
+      return callback err
+
+  getFile: (container, filename, callback) ->
     @db.collection 'fs.files'
     .findOne
       'metadata.mongo-storage': true
@@ -104,6 +123,12 @@ class MongoStorage
         err = new Error 'File not found'
         err.status = 404
         return callback err
+      callback null, file
+
+  download: (container, filename, res, callback = (-> return)) ->
+    self = @
+    @getFile container, filename, (err, file) ->
+      return callback err if err
       gfs = Grid self.db, mongodb
       read = gfs.createReadStream
         _id: file._id
@@ -124,6 +149,11 @@ MongoStorage.prototype.getContainer.accepts = [{arg: 'container', type: 'string'
 MongoStorage.prototype.getContainer.returns = {arg: 'containers', type: 'object', root: true}
 MongoStorage.prototype.getContainer.http = {verb: 'get', path: '/:container'}
 
+MongoStorage.prototype.destroyContainer.shared = true
+MongoStorage.prototype.destroyContainer.accepts = [{arg: 'container', type: 'string'}]
+MongoStorage.prototype.destroyContainer.returns = {}
+MongoStorage.prototype.destroyContainer.http = {verb: 'delete', path: '/:container'}
+
 MongoStorage.prototype.upload.shared = true
 MongoStorage.prototype.upload.accepts = [
   {arg: 'container', type: 'string'}
@@ -132,6 +162,29 @@ MongoStorage.prototype.upload.accepts = [
 ]
 MongoStorage.prototype.upload.returns = {arg: 'result', type: 'object'}
 MongoStorage.prototype.upload.http = {verb: 'post', path: '/:container/upload'}
+
+MongoStorage.prototype.getFiles.shared = true
+MongoStorage.prototype.getFiles.accepts = [
+  {arg: 'container', type: 'string'}
+]
+MongoStorage.prototype.getFiles.returns = {arg: 'file', type: 'array', root: true}
+MongoStorage.prototype.getFiles.http = {verb: 'get', path: '/:container/files'}
+
+MongoStorage.prototype.getFile.shared = true
+MongoStorage.prototype.getFile.accepts = [
+  {arg: 'container', type: 'string'}
+  {arg: 'file', type: 'string'}
+]
+MongoStorage.prototype.getFile.returns = {arg: 'file', type: 'object', root: true}
+MongoStorage.prototype.getFile.http = {verb: 'get', path: '/:container/files/:file'}
+
+MongoStorage.prototype.removeFile.shared = true
+MongoStorage.prototype.removeFile.accepts = [
+  {arg: 'container', type: 'string'}
+  {arg: 'file', type: 'string'}
+]
+MongoStorage.prototype.removeFile.returns = {}
+MongoStorage.prototype.removeFile.http = {verb: 'delete', path: '/:container/files/:file'}
 
 MongoStorage.prototype.download.shared = true
 MongoStorage.prototype.download.accepts = [
