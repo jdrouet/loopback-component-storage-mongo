@@ -1,5 +1,11 @@
 expect          = require('chai').expect
+fs              = require 'fs'
+Grid            = require 'gridfs-stream'
+GridStore       = require('mongodb').GridStore
+ObjectID        = require('mongodb').ObjectID
 loopback        = require 'loopback'
+mongo           = require 'mongodb'
+path            = require 'path'
 StorageService  = require '../source'
 request         = require 'supertest'
 
@@ -74,6 +80,7 @@ describe 'mongo gridfs connector', ->
   describe 'application usage', ->
 
     app     = null
+    ds      = null
     server  = null
     
     before (done) ->
@@ -92,6 +99,9 @@ describe 'mongo gridfs connector', ->
       setTimeout done, 200
 
     before (done) ->
+      ds.connector.db.collection('fs.files').remove {}, done
+
+    before (done) ->
       server = app.listen done
 
     after ->
@@ -99,12 +109,49 @@ describe 'mongo gridfs connector', ->
 
     describe 'getContainers', ->
 
-      result = null
+      describe 'without data', ->
 
-      it 'should return an array', (done) ->
+        it 'should return an array', (done) ->
+          request 'http://localhost:5000'
+          .get '/my-model'
+          .end (err, res) ->
+            expect(res.status).to.equal 200
+            expect(Array.isArray res.body).to.equal true
+            expect(res.body.length).to.equal 0
+            done()
+
+      describe 'with data', ->
+
+        before (done) ->
+          options =
+            filename: 'item.png'
+            mode: 'w'
+            metadata:
+              'mongo-storage': true
+              container: 'test-container'
+              filename: 'item.png'
+          gfs = Grid(ds.connector.db, mongo)
+          write = gfs.createWriteStream options
+          read = fs.createReadStream path.join __dirname, 'files', 'item.png'
+          read.pipe write
+          write.on 'close', -> done()
+
+        it 'should return an array', (done) ->
+          request 'http://localhost:5000'
+          .get '/my-model'
+          .end (err, res) ->
+            expect(res.status).to.equal 200
+            expect(Array.isArray res.body).to.equal true
+            expect(res.body.length).to.equal 1
+            done()
+
+    describe 'upload', ->
+
+      it 'should return 20x', (done) ->
         request 'http://localhost:5000'
-        .get '/my-model'
-        .end (err, res) ->
-          expect(res.status).to.equal 200
-          done()
-
+          .post '/my-model/my-cats/upload'
+          .attach 'file', path.join(__dirname, 'files', 'item.png')
+          .end (err, res) ->
+            expect(res.status).to.equal 200
+            done()
+        done()

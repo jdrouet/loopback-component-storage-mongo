@@ -1,10 +1,12 @@
 _           = require 'lodash'
+Busboy      = require 'busboy'
 DataSource  = require('loopback-datasource-juggler').DataSource
 debug       = require('debug') 'loopback:storage:mongo'
-mongo       = require 'mongodb'
+Grid        = require 'gridfs-stream'
+mongodb     = require 'mongodb'
 
-GridFS      = mongo.GridFS
-ObjectID    = mongo.ObjectID
+GridFS      = mongodb.GridFS
+ObjectID    = mongodb.ObjectID
 
 generateUrl = (options) ->
   host      = options.host or options.hostname or 'localhost'
@@ -27,7 +29,7 @@ class MongoStorage
         if callback
           callback null, self.db
     else
-      mongo.MongoClient.connect @settings.url, @settings, (err, db) ->
+      mongodb.MongoClient.connect @settings.url, @settings, (err, db) ->
         if not err
           debug 'Mongo connection established: ' + self.settings.url
           self.db = db
@@ -37,8 +39,7 @@ class MongoStorage
   getContainers: (callback) ->
     @db.collection 'fs.files'
     .find
-      metadata:
-        'mongo-storage': true
+      'metadata.mongo-storage': true
     .toArray (err, files) ->
       return callback err, files
 
@@ -50,16 +51,30 @@ class MongoStorage
         container: name
     , callback
 
-  upload: (container, file, options, callback) ->
-    metadata =
-      'mongo-storage': true
-      container: container
-      filename: file
-    gridstore = new GridStore @db, new ObjectID(), file.name, 'w',
-      metadata: metadata
-    gridstore.open (err, gridstore) ->
-      return callback err if err
-      gridstore.close callback
+  upload: (container, req, res, callback) ->
+    self = @
+    busboy = new Busboy headers: req.headers
+    busboy.on 'file', (fieldname, file, filename, encoding, mimetype) ->
+      options =
+        filename: filename
+        metadata:
+          'mongo-storage': true
+          container: container
+          filename: filename
+          mimetype: mimetype
+      self.uploadFile container, file, options
+    busboy.on 'finish', ->
+      callback()
+    req.pipe busboy
+
+  uploadFile: (container, file, options, callback = (-> return)) ->
+    options._id = new ObjectID()
+    options.mode = 'w'
+    gfs = Grid @db, mongo
+    stream = gfs.createWriteStream options
+    stream.on 'close', -> callback()
+    file.pipe stream
+
 
 MongoStorage.prototype.getContainers.shared = true
 MongoStorage.prototype.getContainers.accepts = []
@@ -73,6 +88,7 @@ MongoStorage.prototype.getContainer.http = {verb: 'get', path: '/:container'}
 
 MongoStorage.prototype.upload.shared = true
 MongoStorage.prototype.upload.accepts = [
+  {arg: 'container', type: 'string'}
   {arg: 'req', type: 'object', http: {source: 'req'}}
   {arg: 'res', type: 'object', http: {source: 'res'}}
 ]
