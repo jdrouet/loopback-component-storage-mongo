@@ -1,12 +1,14 @@
 expect          = require('chai').expect
 loopback        = require 'loopback'
 StorageService  = require '../source'
-initialize      = require('../source').initialize
+request         = require 'supertest'
 
 describe 'mongo gridfs connector', ->
 
-  app = null
-  datasource = null
+  agent       = null
+  app         = null
+  datasource  = null
+  server      = null
 
   describe 'datasource', ->
 
@@ -63,3 +65,46 @@ describe 'mongo gridfs connector', ->
 
       it 'should exist', ->
         expect(model.getContainer).to.exist
+
+    describe 'upload function', ->
+
+      it 'should exist', ->
+        expect(model.upload).to.exist
+
+  describe 'application usage', ->
+
+    app     = null
+    server  = null
+    
+    before (done) ->
+      app = loopback()
+      app.set 'port', 5000
+      app.set 'url', 'localhost'
+      app.set 'legacyExplorer', false
+      app.use loopback.rest()
+      ds = loopback.createDataSource
+        connector: StorageService
+        hostname: 'localhost'
+        port: 27017
+      model = ds.createModel 'MyModel', {},
+        plural: 'my-model'
+      app.model model
+      setTimeout done, 200
+
+    before (done) ->
+      server = app.listen done
+
+    after ->
+      server.close()
+
+    describe 'getContainers', ->
+
+      result = null
+
+      it 'should return an array', (done) ->
+        request 'http://localhost:5000'
+        .get '/my-model'
+        .end (err, res) ->
+          expect(res.status).to.equal 200
+          done()
+

@@ -3,6 +3,9 @@ DataSource  = require('loopback-datasource-juggler').DataSource
 debug       = require('debug') 'loopback:storage:mongo'
 mongo       = require 'mongodb'
 
+GridFS      = mongo.GridFS
+ObjectID    = mongo.ObjectID
+
 generateUrl = (options) ->
   host      = options.host or options.hostname or 'localhost'
   port      = options.port or 27017
@@ -48,7 +51,33 @@ class MongoStorage
     , callback
 
   upload: (container, file, options, callback) ->
-    console.log container, file, options
+    metadata =
+      'mongo-storage': true
+      container: container
+      filename: file
+    gridstore = new GridStore @db, new ObjectID(), file.name, 'w',
+      metadata: metadata
+    gridstore.open (err, gridstore) ->
+      return callback err if err
+      gridstore.close callback
+
+MongoStorage.prototype.getContainers.shared = true
+MongoStorage.prototype.getContainers.accepts = []
+MongoStorage.prototype.getContainers.returns = {arg: 'containers', type: 'array', root: true}
+MongoStorage.prototype.getContainers.http = {verb: 'get', path: '/'}
+
+MongoStorage.prototype.getContainer.shared = true
+MongoStorage.prototype.getContainer.accepts = [{arg: 'container', type: 'string'}]
+MongoStorage.prototype.getContainer.returns = {arg: 'containers', type: 'object', root: true}
+MongoStorage.prototype.getContainer.http = {verb: 'get', path: '/:container'}
+
+MongoStorage.prototype.upload.shared = true
+MongoStorage.prototype.upload.accepts = [
+  {arg: 'req', type: 'object', http: {source: 'req'}}
+  {arg: 'res', type: 'object', http: {source: 'res'}}
+]
+MongoStorage.prototype.upload.returns = {arg: 'result', type: 'object'}
+MongoStorage.prototype.upload.http = {verb: 'post', path: '/:container/upload'}
 
 exports.initialize = (dataSource, callback) ->
   settings = dataSource.settings or {}

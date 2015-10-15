@@ -48,6 +48,7 @@
     "mocha": "^2.3.3",
     "mongodb": "^2.0.45",
     "serve-favicon": "^2.0.1",
+    "superagent": "^1.4.0",
     "supertest": "^1.1.0"
   }
 }
