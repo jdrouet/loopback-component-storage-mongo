@@ -70,7 +70,7 @@ class MongoStorage
   uploadFile: (container, file, options, callback = (-> return)) ->
     options._id = new ObjectID()
     options.mode = 'w'
-    gfs = Grid @db, mongo
+    gfs = Grid @db, mongodb
     stream = gfs.createWriteStream options
     stream.on 'close', -> callback()
     file.pipe stream
