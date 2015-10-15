@@ -41,15 +41,31 @@ class MongoStorage
     .find
       'metadata.mongo-storage': true
     .toArray (err, files) ->
-      return callback err, files
+      return callback err if err
+      list = _(files)
+      .map 'metadata'
+      .flatten()
+      .map 'container'
+      .uniq()
+      .map (item) ->
+        container: item
+      .value()
+      callback null, list
 
   getContainer: (name, callback) ->
     @db.collection 'fs.files'
-    .findOne
-      metadata:
-        'mongo-storage': true
+    .find
+      'metadata.mongo-storage': true
+      'metadata.container': name
+    .toArray (err, files) ->
+      return callback err if err
+      callback null,
         container: name
-    , callback
+        files: _(files)
+          .map (item) ->
+            _id: item._id
+            filename: item.filename
+          .value()
 
   upload: (container, req, res, callback) ->
     self = @
@@ -74,7 +90,29 @@ class MongoStorage
     stream = gfs.createWriteStream options
     stream.on 'close', -> callback()
     file.pipe stream
+  
+  download: (container, filename, res, callback = (-> return)) ->
+    self = @
+    @db.collection 'fs.files'
+    .findOne
+      'metadata.mongo-storage': true
+      'metadata.container': container
+      'metadata.filename': filename
+    , (err, file) ->
+      return callback err if err
+      if not file
+        err = new Error 'File not found'
+        err.status = 404
+        return callback err
+      gfs = Grid self.db, mongodb
+      read = gfs.createReadStream
+        _id: file._id
+      res.set 'Content-Disposition', "attachment; filename=\"#{file.filename}\""
+      res.set 'Content-Type', file.metadata.mimetype
+      res.set 'Content-Length', file.length
+      read.pipe res
 
+MongoStorage.modelName = 'storage'
 
 MongoStorage.prototype.getContainers.shared = true
 MongoStorage.prototype.getContainers.accepts = []
@@ -94,6 +132,14 @@ MongoStorage.prototype.upload.accepts = [
 ]
 MongoStorage.prototype.upload.returns = {arg: 'result', type: 'object'}
 MongoStorage.prototype.upload.http = {verb: 'post', path: '/:container/upload'}
+
+MongoStorage.prototype.download.shared = true
+MongoStorage.prototype.download.accepts = [
+  {arg: 'container', type: 'string'}
+  {arg: 'file', type: 'string'}
+  {arg: 'res', type: 'object', http: {source: 'res'}}
+]
+MongoStorage.prototype.download.http = {verb: 'get', path: '/:container/download/:file'}
 
 exports.initialize = (dataSource, callback) ->
   settings = dataSource.settings or {}

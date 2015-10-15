@@ -9,6 +9,20 @@ path            = require 'path'
 StorageService  = require '../source'
 request         = require 'supertest'
 
+insertTestFile = (ds, done) ->
+  options =
+    filename: 'item.png'
+    mode: 'w'
+    metadata:
+      'mongo-storage': true
+      container: 'my-cats'
+      filename: 'item.png'
+  gfs = Grid(ds.connector.db, mongo)
+  write = gfs.createWriteStream options
+  read = fs.createReadStream path.join __dirname, 'files', 'item.png'
+  read.pipe write
+  write.on 'close', -> done()
+
 describe 'mongo gridfs connector', ->
 
   agent       = null
@@ -26,7 +40,7 @@ describe 'mongo gridfs connector', ->
       before (done) ->
         datasource = loopback.createDataSource
           connector: StorageService
-          hostname: 'localhost'
+          hostname: '127.0.0.1'
           port: 27017
         setTimeout done, 200
       
@@ -37,7 +51,7 @@ describe 'mongo gridfs connector', ->
 
       it 'should create the url', ->
         expect(datasource.settings.url).to.exist
-        expect(datasource.settings.url).to.eql "mongodb://localhost:27017/test"
+        expect(datasource.settings.url).to.eql "mongodb://127.0.0.1:27017/test"
 
       it 'should be connected', ->
         expect(datasource.connected).to.eql true
@@ -49,7 +63,7 @@ describe 'mongo gridfs connector', ->
     before (done) ->
       datasource = loopback.createDataSource
         connector: StorageService
-        hostname: 'localhost'
+        hostname: '127.0.0.1'
         port: 27017
       model = datasource.createModel 'MyModel'
       setTimeout done, 200
@@ -86,14 +100,15 @@ describe 'mongo gridfs connector', ->
     before (done) ->
       app = loopback()
       app.set 'port', 5000
-      app.set 'url', 'localhost'
+      app.set 'url', '127.0.0.1'
       app.set 'legacyExplorer', false
       app.use loopback.rest()
       ds = loopback.createDataSource
         connector: StorageService
-        hostname: 'localhost'
+        hostname: '127.0.0.1'
         port: 27017
       model = ds.createModel 'MyModel', {},
+        base: 'Model'
         plural: 'my-model'
       app.model model
       setTimeout done, 200
@@ -112,7 +127,7 @@ describe 'mongo gridfs connector', ->
       describe 'without data', ->
 
         it 'should return an array', (done) ->
-          request 'http://localhost:5000'
+          request 'http://127.0.0.1:5000'
           .get '/my-model'
           .end (err, res) ->
             expect(res.status).to.equal 200
@@ -123,34 +138,40 @@ describe 'mongo gridfs connector', ->
       describe 'with data', ->
 
         before (done) ->
-          options =
-            filename: 'item.png'
-            mode: 'w'
-            metadata:
-              'mongo-storage': true
-              container: 'test-container'
-              filename: 'item.png'
-          gfs = Grid(ds.connector.db, mongo)
-          write = gfs.createWriteStream options
-          read = fs.createReadStream path.join __dirname, 'files', 'item.png'
-          read.pipe write
-          write.on 'close', -> done()
+          insertTestFile ds, done
 
         it 'should return an array', (done) ->
-          request 'http://localhost:5000'
+          request 'http://127.0.0.1:5000'
           .get '/my-model'
           .end (err, res) ->
             expect(res.status).to.equal 200
             expect(Array.isArray res.body).to.equal true
             expect(res.body.length).to.equal 1
+            expect(res.body[0].container).to.equal 'my-cats'
             done()
 
     describe 'upload', ->
 
       it 'should return 20x', (done) ->
-        request 'http://localhost:5000'
-          .post '/my-model/my-cats/upload'
-          .attach 'file', path.join(__dirname, 'files', 'item.png')
-          .end (err, res) ->
-            expect(res.status).to.equal 200
-            done()
+        request 'http://127.0.0.1:5000'
+        .post '/my-model/my-cats/upload'
+        .attach 'file', path.join(__dirname, 'files', 'item.png')
+        .end (err, res) ->
+          expect(res.status).to.equal 200
+          done()
+
+    describe 'download', ->
+   
+      before (done) ->
+        ds.connector.db.collection('fs.files').remove {}, done
+     
+      before (done) ->
+        insertTestFile ds, done
+
+      it 'should return the file', (done) ->
+        request 'http://127.0.0.1:5000'
+        .get '/my-model/my-cats/download/item.png'
+        .end (err, res) ->
+          expect(res.status).to.equal 200
+          done()
+
