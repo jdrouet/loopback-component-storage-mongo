@@ -25,4 +25,4 @@ script:
   - npm test
 
 after_script:
-  - cat coverage/lcov.info | COVERALLS_GIT_BRANCH=$TRAVIS_BRANCH COVERALLS_GIT_COMMIT=$TRAVIS_COMMIT ./node_modules/coveralls/bin/coveralls.js
+  - cat coverage/lcov.info | ./node_modules/codecov.io/bin/codecov.io.js
