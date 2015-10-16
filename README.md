@@ -23,7 +23,7 @@ Edit you datasources.json and add the following part
   "connector": "loopback-component-storage-mongo",
   "host": "localhost",
   "port": 27017,
-  "database": "test
+  "database": "test"
 }
 ```
 
@@ -32,7 +32,7 @@ And the you can use it as a datasource of your model.
 ## API
 
 Description                                                   | Container model method                    | REST URI
--------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------|-------------------------------------------|--------------------------------------------
 List all containers                                           | getContainers(callback)                   | GET /api/<model>
 Get information about specified container                     | getContainer(container, callback)         | GET /api/<model>/:container
 Create a new container                                        | createContainer(options, callback)        | PORT /api/<model>
