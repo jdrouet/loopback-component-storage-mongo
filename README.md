@@ -43,4 +43,4 @@ List all files within specified container                     | getFiles(contain
 Get information for specified file within specified container | getFile(container, file, callback)        | GET /api/<model>/:container/files/:file
 Delete a file within a given container by name                | removeFile(container, file, callback)     | DELETE /api/<model>/:container/files/:file
 Upload one or more files into the specified container         | upload(container, req, res, callback)     | POST /api/<model>/:container/upload
-Download a file within specified container                    | download(container, file, res, callback)  | GET /api/<model>/:container/fownload/:file
+Download a file within specified container                    | download(container, file, res, callback)  | GET /api/<model>/:container/download/:file
