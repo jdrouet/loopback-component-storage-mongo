@@ -4,6 +4,7 @@ DataSource  = require('loopback-datasource-juggler').DataSource
 debug       = require('debug') 'loopback:storage:mongo'
 Grid        = require 'gridfs-stream'
 mongodb     = require 'mongodb'
+Promise     = require 'bluebird'
 
 GridFS      = mongodb.GridFS
 ObjectID    = mongodb.ObjectID
@@ -73,17 +74,24 @@ class MongoStorage
   upload: (container, req, res, callback) ->
     self = @
     busboy = new Busboy headers: req.headers
+    promises = []
     busboy.on 'file', (fieldname, file, filename, encoding, mimetype) ->
-      options =
-        filename: filename
-        metadata:
-          'mongo-storage': true
-          container: container
+      promises.push new Promise (resolve, reject) ->
+        options =
           filename: filename
-          mimetype: mimetype
-      self.uploadFile container, file, options
+          metadata:
+            'mongo-storage': true
+            container: container
+            filename: filename
+            mimetype: mimetype
+        self.uploadFile container, file, options, (err, res) ->
+          return reject err if err
+          resolve res
     busboy.on 'finish', ->
-      callback()
+      Promise.all promises
+      .then (res) ->
+        return callback null, res
+      .catch callback
     req.pipe busboy
 
   uploadFile: (container, file, options, callback = (-> return)) ->
@@ -91,7 +99,9 @@ class MongoStorage
     options.mode = 'w'
     gfs = Grid @db, mongodb
     stream = gfs.createWriteStream options
-    stream.on 'close', -> callback()
+    stream.on 'close', (metaData) ->
+      callback null, metaData
+    stream.on 'error', callback
     file.pipe stream
 
   getFiles: (container, callback) ->
