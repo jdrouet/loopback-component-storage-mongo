@@ -1,4 +1,5 @@
 _           = require 'lodash'
+async       = require 'async'
 Busboy      = require 'busboy'
 DataSource  = require('loopback-datasource-juggler').DataSource
 debug       = require('debug') 'loopback:storage:mongo'
@@ -65,11 +66,12 @@ class MongoStorage
         files: files
 
   destroyContainer: (name, callback) ->
-    @db.collection 'fs.files'
-    .remove
-      'metadata.mongo-storage': true
-      'metadata.container': name
-    , callback
+    self = @
+    self.getFiles name, (err, files) ->
+      return callback err if err
+      async.each files, (file, done) ->
+        self.removeFileById file._id, done
+      , callback
 
   upload: (container, req, res, callback) ->
     self = @
@@ -113,13 +115,25 @@ class MongoStorage
       return callback err, files
   
   removeFile: (container, filename, callback) ->
-    @db.collection 'fs.files'
-    .remove
-      'metadata.mongo-storage': true
-      'metadata.container': container
-      'metadata.filename': filename
-    , (err) ->
-      return callback err
+    self = @
+    self.getFile container, filename, (err, file) ->
+      return callback err if err
+      self.removeFileById file._id, callback
+
+  removeFileById: (id, callback) ->
+    self = @
+    async.parallel [
+      (done) ->
+        self.db.collection 'fs.chunks'
+        .remove
+          files_id: id
+        , done
+      (done) ->
+        self.db.collection 'fs.files'
+        .remove
+          _id: id
+        , done
+    ], callback
 
   getFile: (container, filename, callback) ->
     @db.collection 'fs.files'

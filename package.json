@@ -1,6 +1,6 @@
 {
   "name": "loopback-component-storage-mongo",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
@@ -21,6 +21,7 @@
   "author": "Jérémie Drouet <jeremie.drouet@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "async": "^1.5.2",
     "bluebird": "^3.0.6",
     "busboy": "^0.2.11",
     "debug": "^2.2.0",
