@@ -9,13 +9,13 @@ path            = require 'path'
 StorageService  = require '../source'
 request         = require 'supertest'
 
-insertTestFile = (ds, done) ->
+insertTestFile = (ds, container, done) ->
   options =
     filename: 'item.png'
     mode: 'w'
     metadata:
       'mongo-storage': true
-      container: 'my-cats'
+      container: container
       filename: 'item.png'
   gfs = Grid(ds.connector.db, mongo)
   write = gfs.createWriteStream options
@@ -138,7 +138,7 @@ describe 'mongo gridfs connector', ->
       describe 'with data', ->
 
         before (done) ->
-          insertTestFile ds, done
+          insertTestFile ds, 'my-cats', done
 
         it 'should return an array', (done) ->
           request 'http://127.0.0.1:5000'
@@ -148,6 +148,35 @@ describe 'mongo gridfs connector', ->
             expect(Array.isArray res.body).to.equal true
             expect(res.body.length).to.equal 1
             expect(res.body[0].container).to.equal 'my-cats'
+            done()
+
+    describe 'getContainer', ->
+
+      describe 'without data', ->
+
+        it 'should return an array', (done) ->
+          request 'http://127.0.0.1:5000'
+          .get '/my-model/fake-container'
+          .end (err, res) ->
+            expect(res.status).to.equal 200
+            expect(res.body.container).to.equal 'fake-container'
+            expect(Array.isArray res.body.files).to.equal true
+            expect(res.body.files.length).to.equal 0
+            done()
+
+      describe 'with data', ->
+
+        before (done) ->
+          insertTestFile ds, 'my-cats-1', done
+
+        it 'should return an array', (done) ->
+          request 'http://127.0.0.1:5000'
+          .get '/my-model/my-cats-1'
+          .end (err, res) ->
+            expect(res.status).to.equal 200
+            expect(res.body.container).to.equal 'my-cats-1'
+            expect(Array.isArray res.body.files).to.equal true
+            expect(res.body.files.length).to.equal 1
             done()
 
     describe 'upload', ->
@@ -166,7 +195,7 @@ describe 'mongo gridfs connector', ->
         ds.connector.db.collection('fs.files').remove {}, done
      
       before (done) ->
-        insertTestFile ds, done
+        insertTestFile ds, 'my-cats', done
 
       it 'should return the file', (done) ->
         request 'http://127.0.0.1:5000'
@@ -175,3 +204,32 @@ describe 'mongo gridfs connector', ->
           expect(res.status).to.equal 200
           done()
 
+    describe 'removeFile', ->
+ 
+      before (done) ->
+        ds.connector.db.collection('fs.files').remove {}, done
+     
+      before (done) ->
+        insertTestFile ds, 'my-cats', done
+
+      it 'should return the file', (done) ->
+        request 'http://127.0.0.1:5000'
+        .delete '/my-model/my-cats/files/item.png'
+        .end (err, res) ->
+          expect(res.status).to.equal 200
+          done()
+
+    describe 'destroyContainer', ->
+ 
+      before (done) ->
+        ds.connector.db.collection('fs.files').remove {}, done
+     
+      before (done) ->
+        insertTestFile ds, 'my-cats', done
+
+      it 'should return the file', (done) ->
+        request 'http://127.0.0.1:5000'
+        .delete '/my-model/my-cats'
+        .end (err, res) ->
+          expect(res.status).to.equal 200
+          done()

@@ -111,8 +111,7 @@ class MongoStorage
     .find
       'metadata.mongo-storage': true
       'metadata.container': container
-    , (err, files) ->
-      return callback err, files
+    .toArray callback
   
   removeFile: (container, filename, callback) ->
     self = @
@@ -135,12 +134,9 @@ class MongoStorage
         , done
     ], callback
 
-  getFile: (container, filename, callback) ->
+  __getFile: (query, callback) ->
     @db.collection 'fs.files'
-    .findOne
-      'metadata.mongo-storage': true
-      'metadata.container': container
-      'metadata.filename': filename
+    .findOne query
     , (err, file) ->
       return callback err if err
       if not file
@@ -149,17 +145,36 @@ class MongoStorage
         return callback err
       callback null, file
 
+  getFile: (container, filename, callback) ->
+    @__getFile
+      'metadata.mongo-storage': true
+      'metadata.container': container
+      'metadata.filename': filename
+    , callback
+
+  getFileById: (id, callback) ->
+    @__getFile _id: id, callback
+
+  __download: (file, res, callback = (-> return)) ->
+    gfs = Grid @db, mongodb
+    read = gfs.createReadStream
+      _id: file._id
+    res.set 'Content-Disposition', "attachment; filename=\"#{file.filename}\""
+    res.set 'Content-Type', file.metadata.mimetype
+    res.set 'Content-Length', file.length
+    read.pipe res
+
+  downloadById: (id, res, callback = (-> return)) ->
+    self = @
+    @getFileById id, (err, file) ->
+      return callback err if err
+      self.__download file, res, callback
+
   download: (container, filename, res, callback = (-> return)) ->
     self = @
     @getFile container, filename, (err, file) ->
       return callback err if err
-      gfs = Grid self.db, mongodb
-      read = gfs.createReadStream
-        _id: file._id
-      res.set 'Content-Disposition', "attachment; filename=\"#{file.filename}\""
-      res.set 'Content-Type', file.metadata.mimetype
-      res.set 'Content-Length', file.length
-      read.pipe res
+      self.__download file, res, callback
 
 MongoStorage.modelName = 'storage'
 

@@ -1,10 +1,10 @@
 {
   "name": "loopback-component-storage-mongo",
-  "version": "1.0.4",
+  "version": "1.5.0",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
-    "pretest": "mongo test_authenticated --eval 'db.addUser(\"username\", \"password\");'; echo",
+    "pretest": "mongo admin --eval 'db.createUser({\"user\":\"username\", \"pwd\":\"password\",\"roles\":[{\"role\":\"readWrite\",\"db\":\"test_authenticated\"}]});'; echo",
     "test": "COFFEECOV_INIT_ALL=false mocha 'test/{,**/}*.coffee'",
     "posttest": "istanbul report",
     "build": "gulp",
