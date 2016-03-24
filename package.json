@@ -1,6 +1,6 @@
 {
   "name": "loopback-component-storage-mongo",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "",
   "main": "lib/index.js",
   "scripts": {
@@ -21,15 +21,15 @@
   "author": "Jérémie Drouet <jeremie.drouet@gmail.com>",
   "license": "ISC",
   "dependencies": {
-    "async": "^1.5.2",
+    "async": "^2.0.0-rc.2",
     "bluebird": "^3.3.4",
-    "busboy": "^0.2.12",
+    "busboy": "^0.2.13",
     "debug": "^2.2.0",
     "formidable": "^1.0.17",
     "gridfs-stream": "^1.1.1",
     "lodash": "^4.6.1",
     "loopback-connector": "^2.3.0",
-    "mongodb": "^2.1.7",
+    "mongodb": "^2.1.11",
     "string_decoder": "^0.10.31"
   },
   "devDependencies": {
@@ -51,9 +51,9 @@
     "loopback-component-explorer": "^2.4.0",
     "loopback-datasource-juggler": "^2.45.2",
     "mocha": "^2.4.5",
-    "mongodb": "^2.1.7",
+    "mongodb": "^2.1.11",
     "serve-favicon": "^2.3.0",
-    "superagent": "^1.8.0",
+    "superagent": "^1.8.2",
     "supertest": "^1.2.0"
   }
 }
