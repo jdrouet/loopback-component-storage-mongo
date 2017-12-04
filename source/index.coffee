@@ -112,7 +112,7 @@ class MongoStorage
       'metadata.mongo-storage': true
       'metadata.container': container
     .toArray callback
-  
+
   removeFile: (container, filename, callback) ->
     self = @
     self.getFile container, filename, (err, file) ->
@@ -159,7 +159,7 @@ class MongoStorage
     gfs = Grid @db, mongodb
     read = gfs.createReadStream
       _id: file._id
-    res.set 'Content-Disposition', "attachment; filename=\"#{file.filename}\""
+    res.attachment file.filename
     res.set 'Content-Type', file.metadata.mimetype
     res.set 'Content-Length', file.length
     read.pipe res
